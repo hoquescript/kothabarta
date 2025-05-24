@@ -1,0 +1,12 @@
+{
+  "singleQuote": false,
+  "trailingComma": "all",
+  "bracketSpacing": true,
+  "semi": true,
+  "importOrder": ["<THIRD_PARTY_MODULES>", "^@server/(.*)$", "^@ui/(.*)$", "^[./]"],
+  "importOrderSeparation": true,
+  "importOrderSortSpecifiers": true,
+  "printWidth": 80,
+  "arrowParens": "always",
+  "endOfLine": "lf"
+}
