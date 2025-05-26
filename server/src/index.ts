@@ -36,6 +36,11 @@ io.on("connection", (socket) => {
     const { to, offer } = data;
     io.to(to).emit("user:offering", { from: socket.id, offer });
   });
+
+  socket.on("user:offer-answer", (data) => {
+    const { to, answer } = data;
+    io.to(to).emit("user:offer-answering", { from: socket.id, answer });
+  });
 });
 
 // io.on("disconnect", (socket) => {

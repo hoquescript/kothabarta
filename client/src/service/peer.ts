@@ -24,8 +24,25 @@ class PeerService {
     return offer;
   }
 
-  async getAnswer() {}
-  async createOffer() {}
+  async getAnswer(offer: RTCSessionDescription) {
+    if (!this.peer) {
+      throw new Error("Peer not initialized");
+    }
+
+    await this.peer.setRemoteDescription(new RTCSessionDescription(offer));
+
+    const answer = await this.peer.createAnswer();
+    await this.peer.setLocalDescription(new RTCSessionDescription(answer));
+
+    return answer;
+  }
+
+  async addRemoteDescription(offer: RTCSessionDescription) {
+    if (!this.peer) {
+      throw new Error("Peer not initialized");
+    }
+    await this.peer.setRemoteDescription(new RTCSessionDescription(offer));
+  }
 }
 
 export default new PeerService();

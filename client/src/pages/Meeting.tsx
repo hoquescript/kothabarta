@@ -31,19 +31,35 @@ const Meeting = () => {
     };
     socket.on("user:joining", handleUserJoining);
 
-    const handleUserOffer = (data: {
+    const handleUserOffer = async (data: {
       from: string;
       offer: RTCSessionDescription;
     }) => {
-      console.log(data);
-      toast.success(`${data.from} is offering to join the meeting`);
-      // peerService.getAnswer(data.offer);
+      // For the other user who joined later hence he doesn't have the peerSocketId
+      setPeerSocketId(data.from);
+
+      // Send the answer to the initiator
+      const answer = await peerService.getAnswer(data.offer);
+      socket.emit("user:offer-answer", {
+        to: data.from,
+        answer,
+      });
     };
     socket.on("user:offering", handleUserOffer);
+
+    const handleUserOfferAnswer = async (data: {
+      from: string;
+      answer: RTCSessionDescription;
+    }) => {
+      // For the initiator local description was set earlier only, Now the answer is also getting set
+      await peerService.addRemoteDescription(data.answer);
+    };
+    socket.on("user:offer-answering", handleUserOfferAnswer);
 
     return () => {
       socket.off("user:joining", handleUserJoining);
       socket.off("user:offering", handleUserOffer);
+      socket.off("user:offer-answering", handleUserOfferAnswer);
     };
   }, [meetId, socket]);
 
@@ -64,11 +80,13 @@ const Meeting = () => {
         audio: hasAudio,
       });
 
-      const offer = await peerService.getOffer();
-      socket.emit("user:offer", {
-        to: peerSocketId,
-        offer,
-      });
+      if (peerSocketId) {
+        const offer = await peerService.getOffer();
+        socket.emit("user:offer", {
+          to: peerSocketId,
+          offer,
+        });
+      }
 
       setMyStream({
         email: email || "",
@@ -89,6 +107,10 @@ const Meeting = () => {
         peerSocketId ? "grid-cols-2" : "grid-cols-1"
       } w-screen h-screen gap-4 bg-neutral-950 p-8`}
     >
+      <div className="flex flex-col gap-4 text-white">
+        <h1 className="text-2xl font-bold">{email}</h1>
+        <p className="text-sm text-neutral-400">{peerSocketId}</p>
+      </div>
       <div className="w-full h-full relative border-2 border-neutral-700 rounded-md">
         {myStream && (
           <ReactPlayer
