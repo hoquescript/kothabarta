@@ -20,13 +20,21 @@ io.on("connection", (socket) => {
     meetIdToEmail.set(meetId, email);
 
     // Sending a message to all the members in the meeting if someone is already in the meeting
-    io.to(meetId).emit("user:joining", data);
+    io.to(meetId).emit("user:joining", {
+      email,
+      socketId: socket.id,
+    });
 
     // Adding this socket to the room so that the client can join the room
     socket.join(meetId);
 
     // Emit the join request to the room so that the client can join the room
     io.to(socket.id).emit("room:join-accepted", data);
+  });
+
+  socket.on("user:offer", (data) => {
+    const { to, offer } = data;
+    io.to(to).emit("user:offering", { from: socket.id, offer });
   });
 });
 

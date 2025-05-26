@@ -7,8 +7,10 @@ import { useNavigate } from "react-router-dom";
 const Onboarding = () => {
   const socket = useSocket();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [meetId, setMeetId] = useState("");
+  const [email, setEmail] = useState(
+    `test-${Math.floor(Math.random() * 100)}@test.com`,
+  );
+  const [meetId, setMeetId] = useState("1");
 
   const handleContinue = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
