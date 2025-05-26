@@ -32,14 +32,24 @@ io.on("connection", (socket) => {
     io.to(socket.id).emit("room:join-accepted", data);
   });
 
-  socket.on("user:offer", (data) => {
+  socket.on("webrtc:call:send", (data) => {
     const { to, offer } = data;
-    io.to(to).emit("user:offering", { from: socket.id, offer });
+    io.to(to).emit("webrtc:call:received", { from: socket.id, offer });
   });
 
-  socket.on("user:offer-answer", (data) => {
+  socket.on("webrtc:answer:send", (data) => {
     const { to, answer } = data;
-    io.to(to).emit("user:offer-answering", { from: socket.id, answer });
+    io.to(to).emit("webrtc:answer:received", { from: socket.id, answer });
+  });
+
+  socket.on("negotiation:send", (data) => {
+    const { to, offer } = data;
+    io.to(to).emit("negotiation:received", { from: socket.id, offer });
+  });
+
+  socket.on("negotiation:settled", (data) => {
+    const { to, answer } = data;
+    io.to(to).emit("negotiation:completed", { from: socket.id, answer });
   });
 });
 

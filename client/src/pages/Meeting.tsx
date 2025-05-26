@@ -1,11 +1,12 @@
 import { useParams, useSearchParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useSocket } from "../hooks/useSocket";
 import { toast } from "sonner";
 import ReactPlayer from "react-player";
 import peerService from "../service/peer";
+import useNegotitation, { sendStreams } from "@/hooks/useNegotitation";
 
-interface Stream {
+export interface Stream {
   email: string;
   socketId: string;
   screenshare: boolean;
@@ -21,47 +22,74 @@ const Meeting = () => {
   const email = searchParams.get("email");
 
   const [myStream, setMyStream] = useState<Stream | null>(null);
-  const [peerSocketId, setPeerSocketId] = useState<string | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [initiatorSocketId, setInitiatorSocketId] = useState<string | null>(
+    null,
+  );
+  const [remoteSocketId, setRemoteSocketId] = useState<string | null>(null);
+
+  useNegotitation(remoteSocketId, myStream);
+
+  useEffect(() => {
+    peerService.peer.addEventListener("track", (event) => {
+      console.log("RECEIVED STREAM!!!!");
+      setRemoteStream(event.streams[0]);
+    });
+  }, [remoteStream]);
 
   // Handle user joining the meeting
   useEffect(() => {
     const handleUserJoining = (data: { email: string; socketId: string }) => {
       toast.success(`${data.socketId}:${data.email} is joining the meeting`);
-      setPeerSocketId(data.socketId);
+      setRemoteSocketId(data.socketId);
+      setInitiatorSocketId(socket.id!);
     };
     socket.on("user:joining", handleUserJoining);
 
-    const handleUserOffer = async (data: {
+    const handleCallReceived = async (data: {
       from: string;
       offer: RTCSessionDescription;
     }) => {
       // For the other user who joined later hence he doesn't have the peerSocketId
-      setPeerSocketId(data.from);
+      setRemoteSocketId(data.from);
 
       // Send the answer to the initiator
       const answer = await peerService.getAnswer(data.offer);
-      socket.emit("user:offer-answer", {
+      console.log(
+        `From ${email} to ${remoteSocketId} - webrtc:call:received - Call received`,
+      );
+      socket.emit("webrtc:answer:send", {
         to: data.from,
         answer,
       });
+      console.log(
+        `From ${email} to ${remoteSocketId} - webrtc:answer:send - Answer sent`,
+      );
     };
-    socket.on("user:offering", handleUserOffer);
+    socket.on("webrtc:call:received", handleCallReceived);
 
-    const handleUserOfferAnswer = async (data: {
+    const handleUserAnswer = async (data: {
       from: string;
       answer: RTCSessionDescription;
     }) => {
       // For the initiator local description was set earlier only, Now the answer is also getting set
       await peerService.addRemoteDescription(data.answer);
+      // As the handshake is done now we would be starting to send the media streams
+      if (!myStream) return;
+      sendStreams(myStream.stream);
+
+      console.log(
+        `From ${email} to ${remoteSocketId} - webrtc:answer:received - Answer received`,
+      );
     };
-    socket.on("user:offer-answering", handleUserOfferAnswer);
+    socket.on("webrtc:answer:received", handleUserAnswer);
 
     return () => {
       socket.off("user:joining", handleUserJoining);
-      socket.off("user:offering", handleUserOffer);
-      socket.off("user:offer-answering", handleUserOfferAnswer);
+      socket.off("webrtc:call:received", handleCallReceived);
+      socket.off("webrtc:answer:received", handleUserAnswer);
     };
-  }, [meetId, socket]);
+  }, [meetId, socket, myStream, email, remoteSocketId]);
 
   // Handle getting the media stream of my camera and microphone
   useEffect(() => {
@@ -80,10 +108,14 @@ const Meeting = () => {
         audio: hasAudio,
       });
 
-      if (peerSocketId) {
+      // The first user to join the meeting will be the initiator
+      if (initiatorSocketId) {
         const offer = await peerService.getOffer();
-        socket.emit("user:offer", {
-          to: peerSocketId,
+        console.log(
+          `From ${email} to ${remoteSocketId} - webrtc:call:send - Call sent`,
+        );
+        socket.emit("webrtc:call:send", {
+          to: remoteSocketId,
           offer,
         });
       }
@@ -99,32 +131,57 @@ const Meeting = () => {
     };
 
     getMyStream();
-  }, [email, peerSocketId, socket, socket.id]);
+  }, [email, initiatorSocketId, remoteSocketId, socket, socket.id]);
 
   return (
-    <main
-      className={`grid ${
-        peerSocketId ? "grid-cols-2" : "grid-cols-1"
-      } w-screen h-screen gap-4 bg-neutral-950 p-8`}
-    >
-      <div className="flex flex-col gap-4 text-white">
-        <h1 className="text-2xl font-bold">{email}</h1>
-        <p className="text-sm text-neutral-400">{peerSocketId}</p>
-      </div>
-      <div className="w-full h-full relative border-2 border-neutral-700 rounded-md">
-        {myStream && (
-          <ReactPlayer
-            width="100%"
-            height="100%"
-            url={myStream.stream}
-            key={myStream?.socketId}
-            playing={true}
-            muted
-            style={{ position: "absolute", top: 0, left: 0 }}
-          />
-        )}
-      </div>
-    </main>
+    <Fragment>
+      <button
+        onClick={() => {
+          if (myStream) {
+            sendStreams(myStream.stream);
+          }
+        }}
+      >
+        Send Stream
+      </button>
+
+      <main
+        className={`grid ${
+          remoteSocketId ? "grid-cols-2" : "grid-cols-1"
+        } w-screen h-screen gap-4 bg-neutral-950 p-8`}
+      >
+        <div className="w-full h-full relative border-2 border-neutral-700 rounded-md">
+          {/* <div className="flex flex-col gap-4 text-white">
+          <h1 className="text-2xl font-bold">{email}</h1>
+          <p className="text-sm text-neutral-400">{remoteSocketId}</p>
+        </div> */}
+          {myStream && (
+            <ReactPlayer
+              width="100%"
+              height="100%"
+              url={myStream.stream}
+              key={myStream?.socketId}
+              playing={true}
+              muted
+              style={{ position: "absolute", top: 0, left: 0 }}
+            />
+          )}
+        </div>
+        <div className="w-full h-full relative border-2 border-neutral-700 rounded-md">
+          {remoteStream && (
+            <ReactPlayer
+              width="100%"
+              height="100%"
+              url={remoteStream}
+              key={remoteSocketId}
+              playing={true}
+              muted
+              style={{ position: "absolute", top: 0, left: 0 }}
+            />
+          )}
+        </div>
+      </main>
+    </Fragment>
   );
 };
 
