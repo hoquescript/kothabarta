@@ -3,7 +3,7 @@ services:
     name: kothabarta-backend
     env: node
     rootDir: server
-    buildCommand: npm install && npm run build
+    buildCommand: npm ci && npm install --save-dev @types/express && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
