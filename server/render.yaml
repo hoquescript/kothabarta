@@ -3,8 +3,8 @@ services:
     name: kothabarta-backend
     env: node
     rootDir: server
-    buildCommand: npm install && tsc
-    startCommand: node dist/index.js
+    buildCommand: npm install && npm run build
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
