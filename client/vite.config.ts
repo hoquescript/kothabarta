@@ -10,9 +10,4 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  define: {
-    "process.env.VITE_API_URL": JSON.stringify(
-      process.env.VITE_API_URL || "https://kothabarta-backend.onrender.com",
-    ),
-  },
 });
